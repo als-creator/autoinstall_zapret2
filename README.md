@@ -314,6 +314,23 @@ sudo systemctl list-timers | grep zapret2
 
 ## Удаление zapret2
 
+Если zapret2 больше не требуется, выполните одной командой:
+
+```bash
+su -c '
+  if systemctl list-unit-files | grep -q "zapret2.service"; then
+    systemctl disable --now zapret2.service
+    systemctl disable --now zapret2-list-update.timer 2>/dev/null
+    rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.*
+    systemctl daemon-reload
+  fi
+  rm -rf /opt/zapret2 /etc/zapret2
+  rm -f /usr/local/bin/zapret2switch
+'
+```
+
+То же самое в несколько команд:
+
 ```bash
 sudo systemctl disable --now zapret2.service
 sudo systemctl disable --now zapret2-list-update.timer 2>/dev/null
