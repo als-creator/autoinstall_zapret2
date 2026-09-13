@@ -381,47 +381,59 @@ verify_fw
 
 cat <<'EOF'
 
-════════════════════════════════════════════════════════════════════
-                    ZAPRET2 УСТАНОВЛЕН
-════════════════════════════════════════════════════════════════════
+──────────────────────────────────────────────
+  ZAPRET2 УСТАНОВЛЕН
+──────────────────────────────────────────────
+
  Расположение (ZAPRET_BASE):  /opt/zapret2
  Конфиг:                     /opt/zapret2/config   (переменные NFQWS2_*)
  Демон:                      /opt/zapret2/nfq2/nfqws2
  Стратегии Lua:              /opt/zapret2/lua/zapret-lib.lua
                              /opt/zapret2/lua/zapret-antidpi.lua
 
+──────────────────────────────────────────────
  СПИСКИ ДОМЕНОВ
-  Обрабатывать:     /opt/zapret2/ipset/zapret-hosts-user.txt
-  Исключения:       /opt/zapret2/ipset/zapret-hosts-user-exclude.txt
 
+   Обрабатывать:     /opt/zapret2/ipset/zapret-hosts-user.txt
+   Исключения:       /opt/zapret2/ipset/zapret-hosts-user-exclude.txt
+
+──────────────────────────────────────────────
  УПРАВЛЕНИЕ СЕРВИСОМ
-  sudo systemctl start|stop|restart zapret2.service
-  sudo systemctl status zapret2.service
-  sudo journalctl -u zapret2.service -f
-  sudo systemctl enable|disable zapret2.service
 
+   sudo systemctl start|stop|restart zapret2.service
+   sudo systemctl status zapret2.service
+   sudo journalctl -u zapret2.service -f
+   sudo systemctl enable|disable zapret2.service
+
+──────────────────────────────────────────────
  ОБНОВЛЕНИЕ СПИСКОВ ДОМЕНОВ
-  авто:   zapret2-list-update.timer (каждый час)
-  вручн:  sudo /opt/zapret2/init.d/sysv/zapret2 reload-ifsets
 
+   авто:   zapret2-list-update.timer (каждый час)
+   вручн:  sudo /opt/zapret2/init.d/sysv/zapret2 reload-ifsets
+
+──────────────────────────────────────────────
  ПЕРЕКЛЮЧЕНИЕ НАБОРОВ КОНФИГОВ
-  sudo zapret2switch list
-  sudo zapret2switch apply <набор>
-  sudo zapret2switch save  <набор>    # сохранить текущий как набор
-  Профили лежат в: /etc/zapret2/profiles/
 
+   sudo zapret2switch list
+   sudo zapret2switch apply <набор>
+   sudo zapret2switch save  <набор>    # сохранить текущий как набор
+   Профили лежат в: /etc/zapret2/profiles/
+
+──────────────────────────────────────────────
  ПОИСК ПРОБЛЕМ
-  sudo journalctl -u zapret2.service -n 50
-  sudo /opt/zapret2/blockcheck2.sh     # подбор правила под провайдера
-  Мануал: https://github.com/bol-van/zapret2/blob/master/docs/manual.md
 
+   sudo journalctl -u zapret2.service -n 50
+   sudo /opt/zapret2/blockcheck2.sh     # подбор правила под провайдера
+   Мануал: https://github.com/bol-van/zapret2/blob/master/docs/manual.md
+
+──────────────────────────────────────────────
  УДАЛЕНИЕ
-  sudo systemctl disable --now zapret2.service zapret2-list-update.timer
-  sudo rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.*
-  sudo systemctl daemon-reload
-  sudo rm -rf /opt/zapret2 /etc/zapret2
-  sudo rm -f /usr/local/bin/zapret2switch
-════════════════════════════════════════════════════════════════════
+
+   sudo systemctl disable --now zapret2.service zapret2-list-update.timer
+   sudo rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.*
+   sudo systemctl daemon-reload
+   sudo rm -rf /opt/zapret2 /etc/zapret2
+   sudo rm -f /usr/local/bin/zapret2switch
 EOF
 
 exit 0
