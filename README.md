@@ -15,20 +15,6 @@ C-код опций `--dpi-desync=...`. Скрипт сам определяет
 Устанавливается в `/opt/zapret2` — отдельно от zapret v1 (`/opt/zapret`),
 обе версии могут сосуществовать на одной системе.
 
-## Что делает скрипт
-
-1. Проверяет sudo, git, определяет пакетный менеджер (apt, dnf, yum, zypper, pacman, apk, xbps)
-2. Ставит рантайм-зависимости: curl, gzip, ipset, iptables/nftables
-3. Ставит зависимости сборки: gcc, make, pkg-config, dev-заголовки (netfilter_queue, mnl, zlib, libcap, luajit)
-4. Клонирует официальный репозиторий bol-van/zapret2
-5. Собирает из исходников под вашу систему
-6. Копирует zapret2 в /opt/zapret2
-7. Определяет и прописывает FWTYPE (iptables или nftables)
-8. Пишет конфиг с NFQWS2-правилом (Lua-стратегии) и списки хостов/исключений
-9. Создаёт systemd unit `zapret2.service` и таймер обновления списков
-10. Устанавливает утилиту `zapret2switch` в /usr/local/bin
-11. Запускает сервис и проверяет, что демон работает и правило применилось
-
 ## Автоустановка
 
 Запустите скрипт по ссылке:
@@ -67,7 +53,59 @@ sudo /opt/zapret2/init.d/sysv/zapret2 reload-ifsets
 curl -v --max-time 10 https://rutracker.org 2>&1 | grep -E 'HTTP/|Connected to'
 ```
 
-## Чем отличаются версии zapret (v1 и v2)
+## Проверка после установки
+
+```bash
+sudo systemctl status zapret2.service --no-pager --lines=10
+sudo systemctl list-timers | grep zapret2
+```
+
+## Удаление zapret2
+
+Если zapret2 больше не требуется, выполните одной командой:
+
+```bash
+su -c '
+  if systemctl list-unit-files | grep -q "zapret2.service"; then
+    systemctl disable --now zapret2.service
+    systemctl disable --now zapret2-list-update.timer 2>/dev/null
+    rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.*
+    systemctl daemon-reload
+  fi
+  rm -rf /opt/zapret2 /etc/zapret2
+  rm -f /usr/local/bin/zapret2switch
+'
+```
+
+То же самое в несколько команд:
+
+```bash
+sudo systemctl disable --now zapret2.service
+sudo systemctl disable --now zapret2-list-update.timer 2>/dev/null
+sudo rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.timer
+sudo systemctl daemon-reload
+sudo rm -rf /opt/zapret2 /etc/zapret2 /usr/local/bin/zapret2switch
+```
+
+---
+
+## Дальше — для тех, кто хочет разобраться глубже
+
+### Что делает скрипт
+
+1. Проверяет sudo, git, определяет пакетный менеджер (apt, dnf, yum, zypper, pacman, apk, xbps)
+2. Ставит рантайм-зависимости: curl, gzip, ipset, iptables/nftables
+3. Ставит зависимости сборки: gcc, make, pkg-config, dev-заголовки (netfilter_queue, mnl, zlib, libcap, luajit)
+4. Клонирует официальный репозиторий bol-van/zapret2
+5. Собирает из исходников под вашу систему
+6. Копирует zapret2 в /opt/zapret2
+7. Определяет и прописывает FWTYPE (iptables или nftables)
+8. Пишет конфиг с NFQWS2-правилом (Lua-стратегии) и списки хостов/исключений
+9. Создаёт systemd unit `zapret2.service` и таймер обновления списков
+10. Устанавливает утилиту `zapret2switch` в /usr/local/bin
+11. Запускает сервис и проверяет, что демон работает и правило применилось
+
+### Чем отличаются версии zapret (v1 и v2)
 
 **zapret (v1, EOL)** — старая ветка. Автор перевёл её в режим End-Of-Life:
 новых функций не будет, только исправления ошибок. Основной компонент `nfqws`
@@ -270,6 +308,38 @@ sudo zapret2switch apply default  # вернуться к базовому
 делали»). После `apply` сервис перезапускается автоматически, остаётся только
 проверить сайт:
 
+```bash
+curl -v --max-time 10 https://rutracker.org 2>&1 | grep -E 'HTTP/|Connected to'
+```
+
+#### В чём разница между готовыми профилями
+
+Один и тот же трафик (HTTP/TLS/QUIC по портам 80/443), но nfqws2 «прячет»
+пакеты от DPI разными техниками — профили меняют способ обработки.
+
+| Профиль | Что делает с пакетом | Когда помогает |
+|---|---|---|
+| **default** | Три приёма сразу: фейковый первый пакет (вроде TLS/HTTP/QUIC приветствия) + **дробление и перестановка сегментов**. Самый «агрессивный». | Универсальный старт, большинство провайдеров |
+| **split** | Только **дробление** и **перестановка сегментов** (multisplit/multidisorder), без фейков. | Когда DPI ловит TLS ClientHello по содержимому, а фейки дают сбой/замедление |
+| **fake** | Только **фейковые пакеты**, порядок и дробление не меняются. | Когда DPI глушит именно по «паттерну» первого пакета, а десинхрон мешает |
+| **rawsend** | **IP-фрагментация**: пакет режется на IP-фрагменты (`send:ipfrag:pos_tcp=32` / `pos_udp=8`) + исходный **drop**. | Для агрессивного DPI, который собирает TLS/QUIC из кусков в обход TCP-сегментации |
+| **off** | Пустое правило — демон пропускает пакеты без изменений. | Контроль: убедиться, что «торможение» даёт именно zapret, а не сеть |
+
+**Механика коротко:**
+
+- **fake** — nfqws2 отсылает поддельный пакет (TLS-hello с мусором), чтобы DPI
+  начал разбирать его, а настоящий первый пакет проходит незамеченным.
+  В конфиге — `--lua-desync=fake:blob=fake_default_tls/...`.
+- **split / multidisorder** — TCP-данные рвутся на куски или переставляются,
+  чтобы DPI не «собрал» цельный ClientHello.
+  В конфиге — `--lua-desync=multisplit:pos=...` / `--lua-desync=multidisorder:pos=...`.
+- **rawsend** — физическая фрагментация на уровне IP (аналог `ipfrag2` из v1)
+  плюс принудительный `drop` исходного пакета — против DPI, который прозрачно
+  реассемблит TCP. В конфиге — `--lua-desync=send:ipfrag:... --lua-desync=drop`.
+
+Подробности — в [manual.md](https://github.com/bol-van/zapret2/blob/master/docs/manual.md),
+разделы про `fake`, `multisplit`/`multidisorder` и `send:ipfrag`.
+
 Пример рабочего сценария:
 
 ```bash
@@ -321,40 +391,6 @@ sudo /opt/zapret2/blockcheck2.sh
 [zapret.cfgs](https://github.com/Snowy-Fluffy/zapret.cfgs/tree/main/configurations)
 (это конфиги для zapret v1, но опции переносятся в v2 — см. таблицу портирования)
 и применить как набор через `zapret2switch`.
-
-## Проверка после установки
-
-```bash
-sudo systemctl status zapret2.service --no-pager --lines=10
-sudo systemctl list-timers | grep zapret2
-```
-
-## Удаление zapret2
-
-Если zapret2 больше не требуется, выполните одной командой:
-
-```bash
-su -c '
-  if systemctl list-unit-files | grep -q "zapret2.service"; then
-    systemctl disable --now zapret2.service
-    systemctl disable --now zapret2-list-update.timer 2>/dev/null
-    rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.*
-    systemctl daemon-reload
-  fi
-  rm -rf /opt/zapret2 /etc/zapret2
-  rm -f /usr/local/bin/zapret2switch
-'
-```
-
-То же самое в несколько команд:
-
-```bash
-sudo systemctl disable --now zapret2.service
-sudo systemctl disable --now zapret2-list-update.timer 2>/dev/null
-sudo rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.timer
-sudo systemctl daemon-reload
-sudo rm -rf /opt/zapret2 /etc/zapret2 /usr/local/bin/zapret2switch
-```
 
 ## Лицензия
 
