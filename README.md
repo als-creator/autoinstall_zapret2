@@ -267,6 +267,51 @@ sudo zapret2-switch apply провайдер-х    # снова висели н�
 `/etc/zapret2/profiles/<имя>/` (следя за именами файлов) и просто
 `apply` их.
 
+## Проверка зависимостей
+
+```bash
+sudo -v                                   # наличие sudo
+git --version                             # наличие git (для клонирования/сборки)
+command -v cc gcc                         # наличие компилятора
+command -v make                           # наличие make
+command -v pkg-config                     # наличие pkg-config
+```
+
+## Решение проблем
+
+Если сервис не запускается, смотрите журнал:
+
+```bash
+sudo journalctl -u zapret2.service -n 50
+```
+
+Проверка, что демон и файрвол реально работают:
+
+```bash
+pgrep -x nfqws2                           # демон должен быть запущен
+sudo iptables -t mangle -nL | grep NFQUEUE        # если FWTYPE=iptables
+sudo nft list table inet zapret2          # если FWTYPE=nftables
+```
+
+Если демон запущен, но сайты не открываются, подберите правило под своего
+провайдера (интерактивный тест из самого zapret2):
+
+```bash
+sudo /opt/zapret2/blockcheck2.sh
+```
+
+Готовые варианты правил можно взять в
+[zapret.cfgs](https://github.com/Snowy-Fluffy/zapret.cfgs/tree/main/configurations)
+(это конфиги для zapret v1, но опции переносятся в v2 — см. таблицу портирования)
+и применить как набор через `zapret2-switch`.
+
+## Проверка после установки
+
+```bash
+sudo systemctl status zapret2.service --no-pager --lines=10
+sudo systemctl list-timers | grep zapret2
+```
+
 ## Удаление zapret2
 
 ```bash

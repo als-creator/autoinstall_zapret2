@@ -351,18 +351,17 @@ fi
 verify_fw(){
     case "$FWTYPE_UNIVERSAL" in
         iptables)
-            if sudo iptables -t mangle -nL ZAPRET >/dev/null 2>&1; then
-                log_ok "Правила применены: цепочка ZAPRET в mangle присутствует"
+            if sudo iptables -t mangle -nL 2>/dev/null | grep -q NFQUEUE; then
+                log_ok "Правила применены: правило NFQUEUE в mangle присутствует"
             else
-                log_warn "Цепочка ZAPRET не найдена. Проверьте: sudo iptables -t mangle -nL"
+                log_warn "Правило NFQUEUE не найдено. Проверьте: sudo iptables -t mangle -nL"
             fi
             ;;
         nftables)
-            if sudo nft list chain inet zapret post >/dev/null 2>&1 || \
-               sudo nft list tables 2>/dev/null | grep -q zapret; then
-                log_ok "Правила применены: таблица zapret в nftables присутствует"
+            if sudo nft list table inet zapret2 >/dev/null 2>&1; then
+                log_ok "Правила применены: таблица 'inet zapret2' в nftables присутствует"
             else
-                log_warn "Таблица zapret не найдена. Проверьте: sudo nft list tables"
+                log_warn "Таблица 'inet zapret2' не найдена. Проверьте: sudo nft list table inet zapret2"
             fi
             ;;
     esac
@@ -372,49 +371,46 @@ verify_fw
 cat <<'EOF'
 
 ════════════════════════════════════════════════════════════════════
-                    КОНФИГУРАЦИЯ ZAPRET2
+                    ZAPRET2 УСТАНОВЛЕН
 ════════════════════════════════════════════════════════════════════
+ Расположение (ZAPRET_BASE):  /opt/zapret2
+ Конфиг:                     /opt/zapret2/config   (переменные NFQWS2_*)
+ Демон:                      /opt/zapret2/nfq2/nfqws2
+ Стратегии Lua:              /opt/zapret2/lua/zapret-lib.lua
+                             /opt/zapret2/lua/zapret-antidpi.lua
 
-База установки (ZAPRET_BASE):
-  /opt/zapret2
+ СПИСКИ ДОМЕНОВ
+  Обрабатывать:     /opt/zapret2/ipset/zapret-hosts-user.txt
+  Исключения:       /opt/zapret2/ipset/zapret-hosts-user-exclude.txt
 
-Основной конфиг:
-  /opt/zapret2/config
-  (переменные NFQWS2_*, а не NFQWS_* как в zapret v1)
-
-Lua-стратегии обхода DPI (новое в v2):
-  /opt/zapret2/lua/zapret-lib.lua
-  /opt/zapret2/lua/zapret-antidpi.lua
-  /opt/zapret2/lua/zapret-auto.lua
-
-Бинарь демона:
-  /opt/zapret2/nfq2/nfqws2
-
-Список доменов для обработки:
-  /opt/zapret2/ipset/zapret-hosts-user.txt
-Список исключений:
-  /opt/zapret2/ipset/zapret-hosts-user-exclude.txt
-
-Управление сервисом:
+ УПРАВЛЕНИЕ СЕРВИСОМ
   sudo systemctl start|stop|restart zapret2.service
   sudo systemctl status zapret2.service
   sudo journalctl -u zapret2.service -f
+  sudo systemctl enable|disable zapret2.service
 
-Переключение наборов конфигов:
+ ОБНОВЛЕНИЕ СПИСКОВ ДОМЕНОВ
+  авто:   zapret2-list-update.timer (каждый час)
+  вручн:  sudo /opt/zapret2/init.d/sysv/zapret2 reload-ifsets
+
+ ПЕРЕКЛЮЧЕНИЕ НАБОРОВ КОНФИГОВ
   sudo zapret2-switch list
   sudo zapret2-switch apply <набор>
-  sudo zapret2-switch save  <набор>   # сохранить текущий как набор
+  sudo zapret2-switch save  <набор>    # сохранить текущий как набор
   Профили лежат в: /etc/zapret2/profiles/
 
-Полный мануал zapret2:
-  https://github.com/bol-van/zapret2/blob/master/docs/manual.md
+ ПОИСК ПРОБЛЕМ
+  sudo journalctl -u zapret2.service -n 50
+  sudo /opt/zapret2/blockcheck2.sh     # подбор правила под провайдера
+  Мануал: https://github.com/bol-van/zapret2/blob/master/docs/manual.md
 
-Удаление:
+ УДАЛЕНИЕ
   sudo systemctl disable --now zapret2.service zapret2-list-update.timer
   sudo rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.*
   sudo systemctl daemon-reload
-  sudo rm -rf /opt/zapret2
+  sudo rm -rf /opt/zapret2 /etc/zapret2
   sudo rm -f /usr/local/bin/zapret2-switch
+════════════════════════════════════════════════════════════════════
 EOF
 
 exit 0
