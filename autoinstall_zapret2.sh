@@ -48,7 +48,12 @@ get_pkg_lists(){
               PKGS_BLD="git make gcc pkgconfig libnetfilter_queue-devel libmnl-devel zlib-devel libcap-devel luajit-devel"
               ;;
         pacman) PKGS_RT="curl gzip ipset iptables"
-              PKGS_BLD="git make gcc pkgconf libnetfilter_queue libmnl zlib libcap luajit systemd"
+              PKGS_BLD="git make gcc pkgconf libnetfilter_queue libmnl libcap luajit systemd"
+              # zlib provided by zlib-ng-compat on many systems; installing plain zlib
+              # alongside it would conflict, so add zlib only when absent
+              if ! pacman -Qi zlib-ng-compat >/dev/null 2>&1; then
+                  PKGS_BLD="$PKGS_BLD zlib"
+              fi
               ;;
         apk)  PKGS_RT="curl gzip ipset iptables"
               PKGS_BLD="git make gcc musl-dev pkgconf libnetfilter_queue-dev libmnl-dev zlib-dev libcap-dev luajit-dev"
@@ -324,14 +329,20 @@ fi
 # Install config-switch tool
 # ---------------------------------------------------------------------------
 # Switch tool expects to live in the project dir; copy it to /usr/local/bin.
+# When run via `curl ... | sh` there is no local file, so fall back to the repo.
 SWITCH_SRC="$(dirname "$(readlink -f "$0")")/zapret2-switch.sh"
-if [ -f "$SWITCH_SRC" ]; then
+if [ ! -f "$SWITCH_SRC" ]; then
+    log_warn "zapret2-switch.sh не найден рядом со скриптом, скачиваю из репозитория"
+    SWITCH_SRC="$TMPDIR_UNI/zapret2-switch.sh"
+    curl -fsSL "https://raw.githubusercontent.com/als-creator/autoinstall_zapret2/main/zapret2-switch.sh" -o "$SWITCH_SRC" || SWITCH_SRC=""
+fi
+if [ -n "$SWITCH_SRC" ] && [ -f "$SWITCH_SRC" ]; then
     sudo install -m 0755 "$SWITCH_SRC" /usr/local/bin/zapret2-switch
     # create first profile "default" from the freshly written config
     sudo zapret2-switch save default >/dev/null 2>&1 || true
     log_ok "Утилита переключения конфигов установлена: zapret2-switch (профиль 'default' сохранён)"
 else
-    log_warn "zapret2-switch.sh не найден рядом со скриптом — переключение конфигов недоступно"
+    log_warn "zapret2-switch.sh недоступен — переключение конфигов не установлено"
 fi
 
 # ---------------------------------------------------------------------------
