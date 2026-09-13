@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# zapret2-switch — переключение между наборами конфигов zapret2.
+# zapret2switch — переключение между наборами конфигов zapret2.
 #
 # Набор конфигов (профиль) — это каталог в /etc/zapret2/profiles/<имя>/,
 # который может содержать:
@@ -11,15 +11,15 @@
 # Любой файл профиля опционален: отсутствующие файлы не трогаются.
 #
 # Команды:
-#   zapret2-switch list                — показать наборы и активный
-#   zapret2-switch show [имя]           — показать содержимое набора
-#   zapret2-switch current              — имя текущего активного набора
-#   zapret2-switch apply <имя>          — применить набор и перезапустить zapret2
-#   zapret2-switch use <имя>            — то же, что apply
-#   zapret2-switch save <имя>           — сохранить текущие конфиги как набор
-#   zapret2-switch remove <имя>         — удалить набор (не активный)
-#   zapret2-switch reload               — просто перезапустить службу zapret2
-#   zapret2-switch help                 — справка
+#   zapret2switch list                — показать наборы и активный
+#   zapret2switch show [имя]           — показать содержимое набора
+#   zapret2switch current              — имя текущего активного набора
+#   zapret2switch apply <имя>          — применить набор и перезапустить zapret2
+#   zapret2switch use <имя>            — то же, что apply
+#   zapret2switch save <имя>           — сохранить текущие конфиги как набор
+#   zapret2switch remove <имя>         — удалить набор (не активный)
+#   zapret2switch reload               — просто перезапустить службу zapret2
+#   zapret2switch help                 — справка
 #
 set -uo pipefail
 
@@ -34,7 +34,7 @@ SERVICE="zapret2.service"
 log_ok(){ echo "[OK] $*"; }
 log_err(){ echo "[ERROR] $*" >&2; exit 1; }
 
-[ "${EUID:-$(id -u)}" -eq 0 ] || log_err "Запускайте с sudo: sudo zapret2-switch ..."
+[ "${EUID:-$(id -u)}" -eq 0 ] || log_err "Запускайте с sudo: sudo zapret2switch ..."
 [ -d "$ZAPRET_BASE" ] || log_err "zapret2 не установлен ($ZAPRET_BASE отсутствует)"
 command -v sudo >/dev/null 2>&1 || true
 
@@ -93,7 +93,7 @@ cmd_show(){
 
 cmd_apply(){
     local name="$1"
-    profile_exists "$name" || log_err "Набор '$name' не найден (см. 'zapret2-switch list')"
+    profile_exists "$name" || log_err "Набор '$name' не найден (см. 'zapret2switch list')"
     local changed=0
 
     if [ -f "$PROFILES_DIR/$name/config" ]; then
@@ -124,7 +124,7 @@ cmd_apply(){
 
 cmd_save(){
     local name="$1"
-    [ -n "$name" ] || log_err "Укажите имя набора: zapret2-switch save <имя>"
+    [ -n "$name" ] || log_err "Укажите имя набора: zapret2switch save <имя>"
     mkdir -p "$PROFILES_DIR/$name"
     local changed=0
 
@@ -160,11 +160,11 @@ case "$cmd" in
     list|ls)     cmd_list ;;
     show|cat)    cmd_show "${2:-}" ;;
     current)     echo "$(get_active)" ;;
-    apply|use)   [ -n "${2:-}" ] || log_err "Укажите имя набора: zapret2-switch apply <имя>"
+    apply|use)   [ -n "${2:-}" ] || log_err "Укажите имя набора: zapret2switch apply <имя>"
                  cmd_apply "$2" ;;
-    save)        [ -n "${2:-}" ] || log_err "Укажите имя набора: zapret2-switch save <имя>"
+    save)        [ -n "${2:-}" ] || log_err "Укажите имя набора: zapret2switch save <имя>"
                  cmd_save "$2" ;;
-    remove|rm)   [ -n "${2:-}" ] || log_err "Укажите имя набора: zapret2-switch remove <имя>"
+    remove|rm)   [ -n "${2:-}" ] || log_err "Укажите имя набора: zapret2switch remove <имя>"
                  cmd_remove "$2" ;;
     reload)      cmd_reload ;;
     help|-h|--help) usage ;;

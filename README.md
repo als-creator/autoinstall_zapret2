@@ -26,7 +26,7 @@ C-код опций `--dpi-desync=...`. Скрипт сам определяет
 7. Определяет и прописывает FWTYPE (iptables или nftables)
 8. Пишет конфиг с NFQWS2-правилом (Lua-стратегии) и списки хостов/исключений
 9. Создаёт systemd unit `zapret2.service` и таймер обновления списков
-10. Устанавливает утилиту `zapret2-switch` в /usr/local/bin
+10. Устанавливает утилиту `zapret2switch` в /usr/local/bin
 11. Запускает сервис и проверяет, что демон работает и правило применилось
 
 ## Автоустановка
@@ -215,7 +215,7 @@ sudo /opt/zapret2/blockcheck2.sh
 
 ## Переключение между наборами конфигов
 
-Установщик кладёт утилиту `zapret2-switch` в `/usr/local/bin`. Профили живут в
+Установщик кладёт утилиту `zapret2switch` в `/usr/local/bin`. Профили живут в
 `/etc/zapret2/profiles/<имя>/` и могут содержать три файла (любые из них
 опциональны):
 
@@ -230,37 +230,37 @@ sudo /opt/zapret2/blockcheck2.sh
 
 ```bash
 # список наборов и активный
-sudo zapret2-switch list
+sudo zapret2switch list
 
 # применить набор (копирует файлы в /opt/zapret2 и перезапускает zapret2)
-sudo zapret2-switch apply имя-набора
+sudo zapret2switch apply имя-набора
 # синоним:
-sudo zapret2-switch use имя-набора
+sudo zapret2switch use имя-набора
 
 # сохранить текущие конфиги как новый набор (снапшот)
-sudo zapret2-switch save имя-набора
+sudo zapret2switch save имя-набора
 
 # показать, что внутри набора
-sudo zapret2-switch show имя-набора
+sudo zapret2switch show имя-набора
 
 # показать активный набор
-sudo zapret2-switch current
+sudo zapret2switch current
 
 # удалить набор (активный удалять нельзя)
-sudo zapret2-switch remove имя-набора
+sudo zapret2switch remove имя-набора
 
 # просто перезапустить zapret2
-sudo zapret2-switch reload
+sudo zapret2switch reload
 ```
 
 Пример рабочего сценария:
 
 ```bash
-sudo zapret2-switch save базовый          # сохраняем то, что поставил установщик
-sudo zapret2-switch save провайдер-х     # ещё один снапшот
+sudo zapret2switch save базовый          # сохраняем то, что поставил установщик
+sudo zapret2switch save провайдер-х     # ещё один снапшот
 # ...экспериментируете с /opt/zapret2/config ...
-sudo zapret2-switch apply базовый        # вернулись к базовому
-sudo zapret2-switch apply провайдер-х    # снова висели набор 'провайдер-х'
+sudo zapret2switch apply базовый        # вернулись к базовому
+sudo zapret2switch apply провайдер-х    # снова висели набор 'провайдер-х'
 ```
 
 Также можно клонировать/распаковывать чужие конфиги прямо в
@@ -303,7 +303,7 @@ sudo /opt/zapret2/blockcheck2.sh
 Готовые варианты правил можно взять в
 [zapret.cfgs](https://github.com/Snowy-Fluffy/zapret.cfgs/tree/main/configurations)
 (это конфиги для zapret v1, но опции переносятся в v2 — см. таблицу портирования)
-и применить как набор через `zapret2-switch`.
+и применить как набор через `zapret2switch`.
 
 ## Проверка после установки
 
@@ -319,7 +319,7 @@ sudo systemctl disable --now zapret2.service
 sudo systemctl disable --now zapret2-list-update.timer 2>/dev/null
 sudo rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.timer
 sudo systemctl daemon-reload
-sudo rm -rf /opt/zapret2 /etc/zapret2 /usr/local/bin/zapret2-switch
+sudo rm -rf /opt/zapret2 /etc/zapret2 /usr/local/bin/zapret2switch
 ```
 
 ## Лицензия

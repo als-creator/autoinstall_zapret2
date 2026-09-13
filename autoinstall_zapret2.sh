@@ -330,19 +330,19 @@ fi
 # ---------------------------------------------------------------------------
 # Switch tool expects to live in the project dir; copy it to /usr/local/bin.
 # When run via `curl ... | sh` there is no local file, so fall back to the repo.
-SWITCH_SRC="$(dirname "$(readlink -f "$0")")/zapret2-switch.sh"
+SWITCH_SRC="$(dirname "$(readlink -f "$0")")/zapret2switch.sh"
 if [ ! -f "$SWITCH_SRC" ]; then
-    log_warn "zapret2-switch.sh не найден рядом со скриптом, скачиваю из репозитория"
-    SWITCH_SRC="$TMPDIR_UNI/zapret2-switch.sh"
-    curl -fsSL "https://raw.githubusercontent.com/als-creator/autoinstall_zapret2/main/zapret2-switch.sh" -o "$SWITCH_SRC" || SWITCH_SRC=""
+    log_warn "zapret2switch.sh не найден рядом со скриптом, скачиваю из репозитория"
+    SWITCH_SRC="$TMPDIR_UNI/zapret2switch.sh"
+    curl -fsSL "https://raw.githubusercontent.com/als-creator/autoinstall_zapret2/main/zapret2switch.sh" -o "$SWITCH_SRC" || SWITCH_SRC=""
 fi
 if [ -n "$SWITCH_SRC" ] && [ -f "$SWITCH_SRC" ]; then
-    sudo install -m 0755 "$SWITCH_SRC" /usr/local/bin/zapret2-switch
+    sudo install -m 0755 "$SWITCH_SRC" /usr/local/bin/zapret2switch
     # create first profile "default" from the freshly written config
-    sudo zapret2-switch save default >/dev/null 2>&1 || true
-    log_ok "Утилита переключения конфигов установлена: zapret2-switch (профиль 'default' сохранён)"
+    sudo zapret2switch save default >/dev/null 2>&1 || true
+    log_ok "Утилита переключения конфигов установлена: zapret2switch (профиль 'default' сохранён)"
 else
-    log_warn "zapret2-switch.sh недоступен — переключение конфигов не установлено"
+    log_warn "zapret2switch.sh недоступен — переключение конфигов не установлено"
 fi
 
 # ---------------------------------------------------------------------------
@@ -405,9 +405,9 @@ cat <<'EOF'
   вручн:  sudo /opt/zapret2/init.d/sysv/zapret2 reload-ifsets
 
  ПЕРЕКЛЮЧЕНИЕ НАБОРОВ КОНФИГОВ
-  sudo zapret2-switch list
-  sudo zapret2-switch apply <набор>
-  sudo zapret2-switch save  <набор>    # сохранить текущий как набор
+  sudo zapret2switch list
+  sudo zapret2switch apply <набор>
+  sudo zapret2switch save  <набор>    # сохранить текущий как набор
   Профили лежат в: /etc/zapret2/profiles/
 
  ПОИСК ПРОБЛЕМ
@@ -420,7 +420,7 @@ cat <<'EOF'
   sudo rm /etc/systemd/system/zapret2.service /etc/systemd/system/zapret2-list-update.*
   sudo systemctl daemon-reload
   sudo rm -rf /opt/zapret2 /etc/zapret2
-  sudo rm -f /usr/local/bin/zapret2-switch
+  sudo rm -f /usr/local/bin/zapret2switch
 ════════════════════════════════════════════════════════════════════
 EOF
 
