@@ -253,6 +253,23 @@ sudo zapret2switch remove имя-набора
 sudo zapret2switch reload
 ```
 
+Установщик сразу создаёт несколько **готовых профилей стратегий**
+(перебираются одной командой — меняется только `NFQWS2_OPT`, списки и
+сервис общие):
+
+```bash
+sudo zapret2switch apply split    # только дробление/перестановка сегментов
+sudo zapret2switch apply fake     # только поддельные пакеты (без перестановки)
+sudo zapret2switch apply rawsend  # IP-фрагментация (send:ipfrag) + drop
+sudo zapret2switch apply off      # пустое правило — проверка «без обработки»
+sudo zapret2switch apply default  # вернуться к базовому
+```
+
+Порядок перебора при подборе под провайдера, как правило, такой:
+`default` → `split` → `fake` → `rawsend` → `off` (для сравнения с «ничего не
+делали»). После `apply` сервис перезапускается автоматически, остаётся только
+проверить сайт:
+
 Пример рабочего сценария:
 
 ```bash

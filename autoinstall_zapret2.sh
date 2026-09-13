@@ -153,7 +153,9 @@ fi
 # Helpers: --lua-init=@...lua, --lua-desync=... , --payload, --filter-l7,
 #          ranges --in-range/--out-range instead of --dpi-desync-cutoff/start.
 # ---------------------------------------------------------------------------
-sudo tee /opt/zapret2/config >/dev/null <<EOF
+write_config(){ # $1=target file, $2=NFQWS2_OPT block
+    local f="$1" opt="$2"
+    sudo tee "$f" >/dev/null <<EOF
 # this file is included from init scripts
 # change values here
 
@@ -204,13 +206,8 @@ NFQWS2_UDP_PKT_IN=3
 # use <HOSTLIST> and <HOSTLIST_NOAUTO> placeholders to engage standard hostlists
 # and autohostlist in ipset dir. <HOSTLIST_NOAUTO> appends
 # ipset/zapret-hosts-auto.txt as normal list.
-# These rules are Lua-strategy ports of the classic nfqws1 rule:
-#   http/tls/quic -> fake + multidisorder/multisplit with fake tls/http/quic blobs
-NFQWS2_OPT="
---filter-tcp=80 --filter-l7=http <HOSTLIST> --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5 --lua-desync=multisplit:pos=method+2 --new
---filter-tcp=443 --filter-l7=tls <HOSTLIST> --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000 --lua-desync=multidisorder:pos=1,midsld --new
---filter-udp=443 --filter-l7=quic <HOSTLIST_NOAUTO> --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6
-"
+# This rule is the current strategy (fake + multidisorder/multisplit).
+NFQWS2_OPT="$opt"
 # none,ipset,hostlist,autohostlist
 MODE_FILTER=autohostlist
 
@@ -229,6 +226,30 @@ FILTER_TTL_EXPIRED_ICMP=1
 # (get_user.sh get_antizapret.sh get_reestr.sh ...) . comment if not required
 #GETLIST=
 EOF
+}
+
+# --- preset strategies (Lua) written as ready-to-use switch profiles ---
+OPT_DEFAULT="
+--filter-tcp=80 --filter-l7=http <HOSTLIST> --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5 --lua-desync=multisplit:pos=method+2 --new
+--filter-tcp=443 --filter-l7=tls <HOSTLIST> --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000 --lua-desync=multidisorder:pos=1,midsld --new
+--filter-udp=443 --filter-l7=quic <HOSTLIST_NOAUTO> --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6
+"
+OPT_SPLIT="
+--filter-tcp=80 --filter-l7=http <HOSTLIST> --payload=http_req --lua-desync=multisplit:pos=method+2 --new
+--filter-tcp=443 --filter-l7=tls <HOSTLIST> --payload=tls_client_hello --lua-desync=multidisorder:pos=midsld --new
+--filter-udp=443 --filter-l7=quic <HOSTLIST_NOAUTO> --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6
+"
+OPT_FAKE="
+--filter-tcp=80 --filter-l7=http <HOSTLIST> --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5 --new
+--filter-tcp=443 --filter-l7=tls <HOSTLIST> --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000 --new
+--filter-udp=443 --filter-l7=quic <HOSTLIST_NOAUTO> --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6
+"
+OPT_RAW="
+--filter-tcp=80,443 --filter-l7=http,tls <HOSTLIST> --lua-desync=send:ipfrag:ipfrag_pos_tcp=32 --lua-desync=drop --new
+--filter-udp=443 --filter-l7=quic <HOSTLIST_NOAUTO> --lua-desync=send:ipfrag:ipfrag_pos_udp=8 --lua-desync=drop
+"
+
+write_config /opt/zapret2/config "$OPT_DEFAULT"
 log_ok "Конфиг /opt/zapret2/config записан (FWTYPE=$FWTYPE_UNIVERSAL)"
 
 # ---------------------------------------------------------------------------
@@ -341,6 +362,19 @@ if [ -n "$SWITCH_SRC" ] && [ -f "$SWITCH_SRC" ]; then
     # create first profile "default" from the freshly written config
     sudo zapret2switch save default >/dev/null 2>&1 || true
     log_ok "Утилита переключения конфигов установлена: zapret2switch (профиль 'default' сохранён)"
+
+    # preinstall ready-made strategy profiles for easy switching (trial and error)
+    PROFILES_DIR="/etc/zapret2/profiles"
+    sudo mkdir -p "$PROFILES_DIR"
+    write_config "$PROFILES_DIR/split/config" "$OPT_SPLIT"
+    write_config "$PROFILES_DIR/fake/config" "$OPT_FAKE"
+    write_config "$PROFILES_DIR/rawsend/config" "$OPT_RAW"
+    write_config "$PROFILES_DIR/off/config" ""   # пустое правило = проверка без обработки
+    for p in split fake rawsend off; do
+        sudo rm -f "$PROFILES_DIR/$p/zapret-hosts-user.txt" \
+                       "$PROFILES_DIR/$p/zapret-hosts-user-exclude.txt"
+    done
+    log_ok "Готовые профили стратегий: split, fake, rawsend, off (см. zapret2switch list)"
 else
     log_warn "zapret2switch.sh недоступен — переключение конфигов не установлено"
 fi
@@ -417,6 +451,7 @@ cat <<'EOF'
    sudo zapret2switch list
    sudo zapret2switch apply <набор>
    sudo zapret2switch save  <набор>    # сохранить текущий как набор
+   Готовые профили: default split fake rawsend off
    Профили лежат в: /etc/zapret2/profiles/
 
 ──────────────────────────────────────────────
