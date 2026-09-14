@@ -18,6 +18,7 @@
 #   zapret2switch use <имя>            — то же, что apply
 #   zapret2switch save <имя>           — сохранить текущие конфиги как набор
 #   zapret2switch remove <имя>         — удалить набор (не активный)
+#   zapret2switch auto [порядок]        — автоперебор стратегий с проверкой ютуба
 #   zapret2switch reload               — просто перезапустить службу zapret2
 #   zapret2switch help                 — справка
 #
@@ -89,6 +90,66 @@ cmd_show(){
         grep -vE '^\s*(#|$)' "$PROFILES_DIR/$name/config" | sed -n '1,40p'
         echo "--- конец config ---"
     fi
+}
+
+# --- автоперебор стратегий для YouTube ---
+# Пробует профили по очереди, после каждого проверяет доступность youtube.com
+# по HTTPS и останавливается на первом рабочем (порядок можно переопределить:
+#   zapret2switch auto split fake rawsend off )
+
+youtube_check(){
+    # Успех = curl получил HTTP-код кроме 000 (нет соединения) и 403 (реестровый/DPI-отказ)
+    local code
+    code=$(curl -sS --noproxy '*' -o /dev/null --max-time 5 -w '%{http_code}' https://youtube.com 2>/dev/null) || code=000
+    [ "$code" != "000" ] && [ "$code" != "403" ]
+}
+
+youtube_dns_check(){
+    # Признак "мусорного" DNS от провайдера: googlevideo.com резолвится в пустоту,
+    # loopback или 0.0.0.0 — тогда ютуб не откроется ни на одной стратегии, дело в DNS.
+    # Считаем ответ "мусорным", если все адреса из ahostsv4 — loopback/0.0.0.0/пусто.
+    local ip bad=0 empty=1
+    for ip in $(getent ahostsv4 googlevideo.com 2>/dev/null | awk '{print $1}' | sort -u); do
+        empty=0
+        case "$ip" in
+            127.*|0.0.0.0) bad=1 ;;
+            *) return 0 ;;   # есть нормальный публичный адрес — DNS в порядке
+        esac
+    done
+    return 1
+}
+
+cmd_auto(){
+    local order="${*:-split fake rawsend off}"
+    local name worked=""
+    # Предупреждение, если DNS провайдера отдаёт мусор для googlevideo
+    if ! youtube_dns_check; then
+        echo
+        echo "[DNS] googlevideo.com у провайдера резолвится в мусор (loopback/0.0.0.0/пусто)."
+        echo "      Стратегии обхода тут часто бессильны — сперва почините DNS:"
+        echo "        - добавьте 'googlevideo.com' в юзер-лист (обычно он уже там)"
+        echo "        - или задействуйте наш yt-dns (8.8.8.8 / 77.88.8.8) в /etc/resolv.conf"
+        echo
+    fi
+    for name in $order; do
+        profile_exists "$name" || { echo "  пропускаю '$name' — набора нет"; continue; }
+        echo ">>> применяю '$name'"
+        if ! cmd_apply "$name" >/dev/null 2>&1; then
+            echo "  применении '$name' не удалось, пробую дальше"
+            continue
+        fi
+        sleep 3
+        if youtube_check; then
+            worked="$name"
+            echo
+            echo "[OK] ютуб доступен на стратегии '$name' — она оставлена активной."
+            break
+        fi
+        echo "  ютуб не отвечает на '$name', пробую дальше"
+    done
+    [ -n "$worked" ] || echo "[WARN] ни одна из стратегий не дала доступ к ютубу."
+    echo "  Текущий активный набор: $(get_active)"
+    echo "  Перебрать вручную/свой порядок: zapret2switch auto <имя> [<имя> ...]"
 }
 
 cmd_apply(){
@@ -164,6 +225,8 @@ case "$cmd" in
                  cmd_apply "$2" ;;
     save)        [ -n "${2:-}" ] || log_err "Укажите имя набора: zapret2switch save <имя>"
                  cmd_save "$2" ;;
+    auto)        shift 2 2>/dev/null || true
+                 cmd_auto "$@" ;;
     remove|rm)   [ -n "${2:-}" ] || log_err "Укажите имя набора: zapret2switch remove <имя>"
                  cmd_remove "$2" ;;
     reload)      cmd_reload ;;
