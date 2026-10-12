@@ -229,14 +229,20 @@ EOF
 }
 
 # --- preset strategies (Lua) written as ready-to-use switch profiles ---
+# MINIMUM (rutor / rutracker / nnm-club / youtube / telegram):
+#   - TCP 80 : fake http request
+#   - TCP 443: multidisorder по маркерам SNI (аналог проверенного правила
+#              multisplit из byedpi) + запасная стратегия fake
+#   - UDP 443: fake QUIC Initial — без него YouTube идёт по QUIC, который
+#              ТСПУ режет, и видео не грузится
 OPT_DEFAULT="
 --filter-tcp=80 --filter-l7=http <HOSTLIST> --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5 --lua-desync=multisplit:pos=method+2 --new
---filter-tcp=443 --filter-l7=tls <HOSTLIST> --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000 --lua-desync=multidisorder:pos=1,midsld --new
+--filter-tcp=443 --filter-l7=tls <HOSTLIST> --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000 --lua-desync=multidisorder:pos=1,midsld,sniext --new
 --filter-udp=443 --filter-l7=quic <HOSTLIST_NOAUTO> --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6
 "
 OPT_SPLIT="
 --filter-tcp=80 --filter-l7=http <HOSTLIST> --payload=http_req --lua-desync=multisplit:pos=method+2 --new
---filter-tcp=443 --filter-l7=tls <HOSTLIST> --payload=tls_client_hello --lua-desync=multidisorder:pos=midsld --new
+--filter-tcp=443 --filter-l7=tls <HOSTLIST> --payload=tls_client_hello --lua-desync=multidisorder:pos=1,midsld,sniext --new
 --filter-udp=443 --filter-l7=quic <HOSTLIST_NOAUTO> --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6
 "
 OPT_FAKE="
@@ -256,6 +262,66 @@ log_ok "Конфиг /opt/zapret2/config записан (FWTYPE=$FWTYPE_UNIVERSA
 # Hostlists
 # ---------------------------------------------------------------------------
 sudo tee /opt/zapret2/ipset/zapret-hosts-user.txt >/dev/null <<'EOF'
+# --- МИНИМУМ: rutor / rutracker / nnm-club / youtube / telegram ---
+# Rutor
+rutor.info
+rutor.is
+# Rutracker
+rutracker.org
+rutracker.cc
+# NNM-Club
+nnmclub.to
+nnmclub.me
+# YouTube (включая CDN-поддомены)
+youtube.com
+googlevideo.com
+ggpht.com
+ytimg.com
+yt.be
+youtu.be
+googleadservices.com
+gvt1.com
+youtube-nocookie.com
+youtube-ui.l.google.com
+youtubeembeddedplayer.googleapis.com
+youtube.googleapis.com
+youtubei.googleapis.com
+jnn-pa.googleapis.com
+yt-video-upload.l.google.com
+wide-youtube.l.google.com
+play.google.com
+accounts.google.com
+youtubekids.com
+fonts.googleapis.com
+googleads.g.doubleclick.net
+# Telegram
+telegram.org
+telegram.me
+telegram.dog
+t.me
+telegra.ph
+web.telegram.org
+web.telegram.me
+core.telegram.org
+desktop.telegram.org
+# CDN и служебные домены (проверено резолвом)
+# YouTube: apex-ы часто без A-записи, но нужны для матчинга поддоменов
+gstatic.com
+googleusercontent.com
+l.google.com
+1e100.net
+m.youtube.com
+img.youtube.com
+yt3.ggpht.com
+yt4.ggpht.com
+youtube.ru
+# Telegram: клиенты и веб-приложения
+tdesktop.com
+telegramusercontent.com
+k.telegram.org
+webk.telegram.org
+telesco.pe
+# --- прочее ---
 youtube.com
 googlevideo.com
 ggpht.com
@@ -575,6 +641,32 @@ verify_fw(){
     esac
 }
 verify_fw
+
+# ---------------------------------------------------------------------------
+# Проверка минимального набора доменов
+# ---------------------------------------------------------------------------
+verify_min_domains(){
+    command -v curl >/dev/null 2>&1 || { log_warn "curl не найден, пропускаю проверку"; return 0; }
+    min_domains="rutracker.org nnmclub.to www.youtube.com i.ytimg.com yt3.googleusercontent.com rutor.info telegram.org t.me web.telegram.org"
+    echo
+    echo "Минимальный набор доменов:"
+    for h in $min_domains; do
+        code=$(curl -k -sS -m 8 -o /dev/null -w '%{http_code}' "https://$h/" 2>/dev/null)
+        if [ -n "$code" ] && [ "$code" != "000" ]; then
+            printf '  %-30s OK (%s)\n' "$h" "$code"
+            continue
+        fi
+        inlist=no
+        grep -qE "^[[:space:]]*$(printf '%s' "$h" | sed 's/\./\\./g')([[:space:]]*\$)" /opt/zapret2/ipset/zapret-hosts-user.txt 2>/dev/null && inlist=yes
+        if [ "$inlist" = no ]; then
+            printf '  %-30s FAIL (домена нет в zapret-hosts-user.txt)\n' "$h"
+        else
+            printf '  %-30s FAIL (домен в списке, но не открывается — вероятна блокировка по IP)\n' "$h"
+        fi
+    done
+}
+
+verify_min_domains
 
 cat <<'EOF'
 
