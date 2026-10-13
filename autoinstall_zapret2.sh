@@ -229,7 +229,7 @@ EOF
 }
 
 # --- preset strategies (Lua) written as ready-to-use switch profiles ---
-# MINIMUM (rutor / rutracker / nnm-club / youtube / telegram):
+# MINIMUM (rutor / rutracker / nnm-club / youtube):
 #   - TCP 80 : fake http request
 #   - TCP 443: multidisorder по маркерам SNI (аналог проверенного правила
 #              multisplit из byedpi) + запасная стратегия fake
@@ -262,7 +262,7 @@ log_ok "Конфиг /opt/zapret2/config записан (FWTYPE=$FWTYPE_UNIVERSA
 # Hostlists
 # ---------------------------------------------------------------------------
 sudo tee /opt/zapret2/ipset/zapret-hosts-user.txt >/dev/null <<'EOF'
-# --- МИНИМУМ: rutor / rutracker / nnm-club / youtube / telegram ---
+# --- МИНИМУМ: rutor / rutracker / nnm-club / youtube ---
 # Rutor
 rutor.info
 rutor.is
@@ -294,17 +294,6 @@ accounts.google.com
 youtubekids.com
 fonts.googleapis.com
 googleads.g.doubleclick.net
-# Telegram
-telegram.org
-telegram.me
-telegram.dog
-t.me
-telegra.ph
-web.telegram.org
-web.telegram.me
-core.telegram.org
-desktop.telegram.org
-# CDN и служебные домены (проверено резолвом)
 # YouTube: apex-ы часто без A-записи, но нужны для матчинга поддоменов
 gstatic.com
 googleusercontent.com
@@ -312,16 +301,10 @@ l.google.com
 1e100.net
 m.youtube.com
 img.youtube.com
+yt3.googleusercontent.com
 yt3.ggpht.com
 yt4.ggpht.com
 youtube.ru
-# Telegram: клиенты и веб-приложения
-tdesktop.com
-telegramusercontent.com
-k.telegram.org
-webk.telegram.org
-telesco.pe
-# --- прочее ---
 youtube.com
 googlevideo.com
 ggpht.com
@@ -440,80 +423,6 @@ regexlearn.com
 linkedin.com
 www.linkedin.com
 px.ads.linkedin.com
-telegram.org
-telegram.me
-telegram.dog
-t.me
-telegra.ph
-telesco.pe
-graph.org
-tgcdn.net
-mtproxy.app
-mtproxy.dev
-proxy.mtpproto.network
-api.telegram.org
-web.telegram.org
-webk.telegram.org
-aurora.web.telegram.org
-pluto.web.telegram.org
-venus.web.telegram.org
-ws1.web.telegram.org
-ws2.web.telegram.org
-ws4.web.telegram.org
-ws5.web.telegram.org
-zws1.web.telegram.org
-zws2.web.telegram.org
-zws1.web.telegram.me
-zws2.web.telegram.me
-web.telegram.me
-android.telegram.org
-ios.telegram.org
-macos.telegram.org
-desktop.telegram.org
-login.telegram.org
-auth.telegram.org
-my.telegram.org
-core.telegram.org
-dev.telegram.org
-docs.telegram.org
-help.telegram.org
-blog.telegram.org
-contest.telegram.org
-donate.telegram.org
-emoji.telegram.org
-fragment.telegram.org
-instantview.telegram.org
-premium.telegram.org
-promo.telegram.org
-qr.telegram.org
-reactions.telegram.org
-schema.telegram.org
-settings.telegram.org
-stickers.telegram.org
-themes.telegram.org
-ton.telegram.org
-translations.telegram.org
-verify.telegram.org
-voice.telegram.org
-wallet.telegram.org
-claims.telegram.org
-comments.telegram.org
-pay.telegram.org
-x.telegram.org
-mmg.telegram.net
-pr.tn
-cdn.telegram.org
-cdn1.telegram.org
-cdn2.telegram.org
-cdn3.telegram.org
-cdn4.telegram.org
-server1.telegram.org
-server2.telegram.org
-server3.telegram.org
-server4.telegram.org
-server5.telegram.org
-updates.telegram.org
-vesta.web.telegram.org
 speedtest.net
 c.speedtest.net
 cs.speedtest.net
@@ -647,7 +556,7 @@ verify_fw
 # ---------------------------------------------------------------------------
 verify_min_domains(){
     command -v curl >/dev/null 2>&1 || { log_warn "curl не найден, пропускаю проверку"; return 0; }
-    min_domains="rutracker.org nnmclub.to www.youtube.com i.ytimg.com yt3.googleusercontent.com rutor.info telegram.org t.me web.telegram.org"
+    min_domains="rutracker.org nnmclub.to www.youtube.com i.ytimg.com yt3.googleusercontent.com rutor.info"
     echo
     echo "Минимальный набор доменов:"
     for h in $min_domains; do
