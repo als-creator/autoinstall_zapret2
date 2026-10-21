@@ -15,6 +15,41 @@ done
 
 log_ok(){ echo "[OK] $*"; }
 log_warn(){ echo "[WARN] $*"; }
+# ---------------------------------------------------------------------------
+# Удаление: --remove | --off | --uninstall
+# Снимает сервис, юниты и правила, стирает каталог целиком (включая списки и
+# бэкапы). Настройки byedpi не трогает.
+# ---------------------------------------------------------------------------
+case " ${*:-} " in
+*" --remove "*|*" --off "*|*" --uninstall "*)
+    ZDIR=/opt/zapret2
+    echo "=== Удаление zapret ==="
+    sudo systemctl disable --now zapret 2>/dev/null || true
+    sudo systemctl disable --now zapret2 2>/dev/null || true
+    sudo systemctl disable --now zapret2-list-update.timer 2>/dev/null || true
+    sudo rm -f /etc/systemd/system/zapret.service \
+               /etc/systemd/system/zapret2.service \
+               /etc/systemd/system/zapret2-list-update.service \
+               /etc/systemd/system/zapret2-list-update.timer
+    sudo systemctl daemon-reload 2>/dev/null || true
+    # nft-таблица (если zapret создавал её) и цепочки ZAPRET_* в iptables
+    sudo nft delete table inet zapret 2>/dev/null || true
+    for c in $(sudo iptables-save 2>/dev/null | sed -n 's/^-A \(ZAPRET[^ ]*\).*/\1/p' | sort -u || true); do
+        for ch in OUTPUT POSTROUTING PREROUTING INPUT; do
+            sudo iptables -t mangle -D "$ch" -j "$c" 2>/dev/null || true
+        done
+        sudo iptables -t mangle -F "$c" 2>/dev/null || true
+        sudo iptables -t mangle -X "$c" 2>/dev/null || true
+    done
+    sudo rm -rf "$ZDIR" /etc/zapret /etc/zapret2
+    if pgrep -x nfqws >/dev/null 2>&1; then
+        echo "[WARN] nfqws ещё запущен — остановите: sudo systemctl stop zapret"
+    fi
+    echo "Удалено: $ZDIR, юниты, правила. Списки и их .bak тоже (каталог стёрт)."
+    exit 0
+    ;;
+esac
+
 log_err(){ echo "[ERROR] $*"; exit 1; }
 
 [ "${EUID:-$(id -u)}" -eq 0 ] && log_err "Не запускайте скрипт от root."
