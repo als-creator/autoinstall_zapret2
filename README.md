@@ -60,8 +60,8 @@ sudo systemctl status zapret2.service --no-pager --lines=10
 sudo systemctl list-timers | grep zapret2
 ```
 
-Скрипт также печатает проверку минимального набора доменов — rutor,
-rutracker, nnm-club, YouTube. Домен, который не открывается и при
+Скрипт также печатает проверку минимального набора доменов — rutracker,
+nnm-club, YouTube, Discord. Домен, который не открывается и при
 этом есть в `zapret-hosts-user.txt`, почти всегда заблокирован по IP (RST
 сразу после connect) — desync по SNI такие блокировки не снимает.
 
