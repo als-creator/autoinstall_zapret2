@@ -74,6 +74,10 @@ grep -q 'KEEP_LISTS" != "yes"' "$SCRIPT"
 check "при --keep-lists список не перезаписывается" "$?"
 grep -q -- '--block-quic' "$SCRIPT"
 check "--block-quic распознаётся" "$?"
+grep -q 'min_domains=".*discord\.com' "$SCRIPT" && ! grep -q 'min_domains=".*rutor\.info' "$SCRIPT"
+check "проверка использует discord.com, а не rutor" "$?"
+grep -qxF 'signal.org' "$SCRIPT"
+check "в hostlist добавлен signal.org" "$?"
 
 # --- 2. удаление ----------------------------------------------------------
 echo "2) --remove: удаление"

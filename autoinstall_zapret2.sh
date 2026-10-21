@@ -514,6 +514,18 @@ www.googleapis.com
 storage.googleapis.com
 dl.google.com
 ytimg.google.com
+# --- Заблокированные сервисы и медиа ---------------------------------------
+# Проверено: без desync не открываются (000), с zapret работают.
+signal.org
+www.signal.org
+svoboda.org
+www.svoboda.org
+currenttime.tv
+www.currenttime.tv
+novayagazeta.eu
+www.novayagazeta.eu
+ovdinfo.org
+www.ovdinfo.org
 EOF
 
 sudo tee /opt/zapret2/ipset/zapret-hosts-user-exclude.txt >/dev/null <<'EOF'
@@ -648,7 +660,7 @@ setup_block_quic
 # ---------------------------------------------------------------------------
 verify_min_domains(){
     command -v curl >/dev/null 2>&1 || { log_warn "curl не найден, пропускаю проверку"; return 0; }
-    min_domains="rutracker.org nnmclub.to www.youtube.com i.ytimg.com yt3.googleusercontent.com rutor.info"
+    min_domains="rutracker.org nnmclub.to www.youtube.com i.ytimg.com yt3.googleusercontent.com discord.com"
     echo
     echo "Минимальный набор доменов:"
     for h in $min_domains; do
