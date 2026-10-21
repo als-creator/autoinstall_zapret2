@@ -88,6 +88,26 @@ sh autoinstall_zapret.sh --keep-lists
 ```
 
 
+## Блокировка QUIC (UDP 443)
+
+В отличие от byedpi, zapret умеет обрабатывать QUIC: в его правиле есть
+`--filter-udp=443 --dpi-desync=fake` с подставным QUIC Initial, поэтому по
+умолчанию UDP 443 **не блокируется**. Если провайдер режет QUIC настолько,
+что fake не помогает (браузер висит на HTTP/3 — чёрный экран YouTube, хотя
+TCP открывается), включите блокировку:
+
+```bash
+sh autoinstall_zapret.sh --block-quic
+```
+
+Скрипт создаёт юнит `zapret-quic.service`, который ставит в `iptables` правило
+`REJECT` для UDP 443 (кроме root), и браузер сразу переходит на TCP через
+zapret. `--remove` снимает и этот юнит, и цепочку `ZAPRET_QUIC`.
+
+Проверить вручную: `curl --http3-only -m 5 -o /dev/null -w '%{http_code}\n'
+https://www.youtube.com/` — при включённой блокировке код будет `000`.
+
+
 ## Удаление zapret2
 
 Если zapret2 больше не требуется, выполните одной командой:

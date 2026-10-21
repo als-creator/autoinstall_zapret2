@@ -72,15 +72,21 @@ grep -q -- '--keep-lists' "$SCRIPT"
 check "--keep-lists распознаётся" "$?"
 grep -q 'KEEP_LISTS" != "yes"' "$SCRIPT"
 check "при --keep-lists список не перезаписывается" "$?"
+grep -q -- '--block-quic' "$SCRIPT"
+check "--block-quic распознаётся" "$?"
 
 # --- 2. удаление ----------------------------------------------------------
 echo "2) --remove: удаление"
 echo "СТАРЫЙ-СПИСОК" > "$ROOT$ZDIR/ipset/zapret-hosts-user.txt"
-touch "$ROOT/etc/systemd/system/zapret.service" "$ROOT/etc/zapret/old.conf"
+touch "$ROOT/etc/systemd/system/zapret.service" "$ROOT/etc/zapret/old.conf" \
+      "$ROOT/etc/systemd/system/zapret-quic.service"
 PATH="$BIN:$PATH" sh "$WORK/under-test.sh" --remove >"$WORK/remove.log" 2>&1
 check "--remove завершился успешно" "$?"
 check "каталог $ZDIR удалён целиком (со списками и .bak)" "$([ ! -d "$ROOT$ZDIR" ] && echo 0 || echo 1)"
 check "юнит zapret удалён" "$([ ! -e "$ROOT/etc/systemd/system/zapret.service" ] && echo 0 || echo 1)"
+check "юнит zapret-quic удалён" "$([ ! -e "$ROOT/etc/systemd/system/zapret-quic.service" ] && echo 0 || echo 1)"
+grep -q 'ZAPRET_QUIC' "$SCRIPT"
+check "правило ZAPRET_QUIC снимается при --remove" "$?"
 check "старый конфиг /etc/zapret удалён" "$([ ! -d "$ROOT/etc/zapret" ] && echo 0 || echo 1)"
 
 echo
