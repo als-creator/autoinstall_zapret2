@@ -8,9 +8,12 @@
 set -uo pipefail
 
 # --keep-lists: не перезаписывать существующий список доменов
+# --block-quic: блокировать UDP 443 (REJECT), чтобы браузер шёл по TCP через zapret
 KEEP_LISTS="no"
+BLOCK_QUIC="no"
 for a in "$@"; do
     [ "$a" = "--keep-lists" ] && KEEP_LISTS="yes"
+    [ "$a" = "--block-quic" ] && BLOCK_QUIC="yes"
 done
 
 log_ok(){ echo "[OK] $*"; }
@@ -27,10 +30,12 @@ case " ${*:-} " in
     sudo systemctl disable --now zapret 2>/dev/null || true
     sudo systemctl disable --now zapret2 2>/dev/null || true
     sudo systemctl disable --now zapret2-list-update.timer 2>/dev/null || true
+    sudo systemctl disable --now zapret-quic 2>/dev/null || true
     sudo rm -f /etc/systemd/system/zapret.service \
                /etc/systemd/system/zapret2.service \
                /etc/systemd/system/zapret2-list-update.service \
-               /etc/systemd/system/zapret2-list-update.timer
+               /etc/systemd/system/zapret2-list-update.timer \
+               /etc/systemd/system/zapret-quic.service
     sudo systemctl daemon-reload 2>/dev/null || true
     # nft-таблица (если zapret создавал её) и цепочки ZAPRET_* в iptables
     sudo nft delete table inet zapret 2>/dev/null || true
@@ -40,6 +45,11 @@ case " ${*:-} " in
         done
         sudo iptables -t mangle -F "$c" 2>/dev/null || true
         sudo iptables -t mangle -X "$c" 2>/dev/null || true
+    done
+    for c in ZAPRET_QUIC; do
+        sudo iptables -t filter -D OUTPUT -j "$c" 2>/dev/null || true
+        sudo iptables -t filter -F "$c" 2>/dev/null || true
+        sudo iptables -t filter -X "$c" 2>/dev/null || true
     done
     sudo rm -rf "$ZDIR" /etc/zapret /etc/zapret2
     if pgrep -x nfqws >/dev/null 2>&1; then
@@ -599,6 +609,39 @@ verify_fw(){
     esac
 }
 verify_fw
+
+# ---------------------------------------------------------------------------
+# Блокировка QUIC (UDP 443) — только по --block-quic.
+#
+# Сам zapret умеет обходить блокировку QUIC (--filter-udp=443 + fake-quic),
+# поэтому по умолчанию ничего не блокируем. Флаг нужен, когда fake не помогает
+# и HTTP/3 всё равно висит: быстрый REJECT заставляет браузер идти по TCP.
+# ---------------------------------------------------------------------------
+setup_block_quic(){
+    [ "$BLOCK_QUIC" = "yes" ] || return 0
+    if ! command -v iptables >/dev/null 2>&1; then
+        log_warn "iptables не найден — блокировка QUIC пропущена"
+        return 0
+    fi
+    sudo tee /etc/systemd/system/zapret-quic.service >/dev/null <<'EOF'
+[Unit]
+Description=Block QUIC (UDP 443) so browsers use TCP through zapret
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'iptables -t filter -N ZAPRET_QUIC 2>/dev/null || true; iptables -t filter -F ZAPRET_QUIC; iptables -t filter -A ZAPRET_QUIC -p udp --dport 443 -m owner ! --uid-owner 0 -j REJECT --reject-with icmp-port-unreachable; iptables -t filter -C OUTPUT -j ZAPRET_QUIC 2>/dev/null || iptables -t filter -A OUTPUT -j ZAPRET_QUIC'
+ExecStop=/bin/sh -c 'iptables -t filter -D OUTPUT -j ZAPRET_QUIC 2>/dev/null || true; iptables -t filter -F ZAPRET_QUIC 2>/dev/null || true; iptables -t filter -X ZAPRET_QUIC 2>/dev/null || true'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload >/dev/null 2>&1
+    sudo systemctl enable --now zapret-quic.service >/dev/null 2>&1 || true
+    log_ok "QUIC (UDP 443) заблокирован: zapret-quic.service"
+}
+setup_block_quic
 
 # ---------------------------------------------------------------------------
 # Проверка минимального набора доменов
